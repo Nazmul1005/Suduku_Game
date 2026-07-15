@@ -83,11 +83,3 @@ Then open `index.html` in any modern browser. That's it!
 | 🟣 Expert | ~24 | Few clues |
 
 ---
-
-<div align="center">
-
-Made with ☕ and 🧩 by [Nazmul](https://github.com/Nazmul1005)
-
-⭐ Star this repo if you enjoyed the game!
-
-</div>
