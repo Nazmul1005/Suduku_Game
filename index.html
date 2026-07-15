@@ -447,6 +447,31 @@
 
     .dash-user { text-align: center; color: var(--text-muted); font-weight: 600; margin-bottom: 14px; }
 
+    /* Competition hub */
+    .chal-sub { text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 16px; }
+    .chal-hero {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: linear-gradient(135deg, #325aaf, #6a4bd6);
+      color: #fff;
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+    .chal-num { font-size: 3rem; font-weight: 800; line-height: 1; }
+    .chal-cap { font-size: 0.75rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.9; margin-top: 4px; }
+    .chal-milestone {
+      text-align: center;
+      background: var(--accent-soft);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--given);
+      margin-bottom: 16px;
+    }
+
     .modal-box.wide { max-width: 400px; text-align: left; }
     .modal-box.wide h2 { text-align: center; }
 
@@ -568,6 +593,7 @@
       <button class="difficulty-card expert" data-diff="Expert">Expert<small>Few clues</small></button>
     </div>
     <div class="landing-links">
+      <button class="btn primary" id="openChallenge">🏆 Competition</button>
       <button class="btn" id="openDashboard">📊 Dashboard</button>
       <button class="btn" id="openSettings">⚙️ Settings</button>
     </div>
@@ -693,6 +719,29 @@
     </div>
   </div>
 
+  <!-- Competition / campaign modal -->
+  <div class="modal hidden" id="challengeModal">
+    <div class="modal-box wide">
+      <h2>🏆 Competition</h2>
+      <p class="chal-sub">Beat one puzzle after another. Levels get tougher and milestones pay off.</p>
+      <div class="chal-hero">
+        <div class="chal-num" id="chalLevel">1</div>
+        <div class="chal-cap">Current Level</div>
+      </div>
+      <div class="dash-overall">
+        <div class="box"><div class="n" id="chalPoints">0</div><div class="l">Points</div></div>
+        <div class="box"><div class="n" id="chalBest">1</div><div class="l">Best Level</div></div>
+        <div class="box"><div class="n" id="chalDiff">Easy</div><div class="l">Difficulty</div></div>
+      </div>
+      <div class="chal-milestone" id="chalMilestone"></div>
+      <div class="modal-actions">
+        <button class="btn danger" id="chalReset">Reset</button>
+        <button class="btn" id="chalClose">Close</button>
+        <button class="btn primary" id="chalPlay">Play Level 1</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     const SIZE = 9;
     const BOX = 3;
@@ -725,13 +774,16 @@
     }
 
     function blankStats() {
-      const s = {};
+      const s = { challenge: { level: 1, points: 0, bestLevel: 1 } };
       DIFFS.forEach(d => s[d] = { played: 0, wins: 0, losses: 0, bestTime: null });
       return s;
     }
     function normalizeStats(saved) {
       const base = blankStats();
-      if (saved) DIFFS.forEach(d => { if (saved[d]) base[d] = { ...base[d], ...saved[d] }; });
+      if (saved) {
+        DIFFS.forEach(d => { if (saved[d]) base[d] = { ...base[d], ...saved[d] }; });
+        if (saved.challenge) base.challenge = { ...base.challenge, ...saved.challenge };
+      }
       return base;
     }
 
@@ -773,6 +825,7 @@
     const timerStatEl = timerEl.closest('.stat');
     const settingsModal = document.getElementById('settingsModal');
     const dashboardModal = document.getElementById('dashboardModal');
+    const challengeModal = document.getElementById('challengeModal');
     const loginScreen = document.getElementById('loginScreen');
     const loginForm = document.getElementById('loginForm');
     const nicknameInput = document.getElementById('nicknameInput');
@@ -795,6 +848,23 @@
     let currentDifficulty = 'Easy';
     let history = [];       // undo stack
     let recorded = false;   // whether current game already counted in stats
+    let gameMode = 'casual'; // 'casual' | 'challenge'
+
+    // Competition / campaign scoring
+    const BASE_POINTS = { Easy: 100, Medium: 200, Hard: 350, Expert: 500 };
+    const MILESTONE_EVERY = 5;
+    const MILESTONE_BONUS = 500;
+
+    function difficultyForLevel(l) {
+      if (l <= 3) return 'Easy';
+      if (l <= 7) return 'Medium';
+      if (l <= 12) return 'Hard';
+      return 'Expert';
+    }
+    function levelPoints(diff, mistakesMade) {
+      const base = BASE_POINTS[diff];
+      return Math.max(Math.round(base * 0.4), base - mistakesMade * 25);
+    }
 
     /* ---------- Generation ---------- */
     function shuffle(a) {
@@ -896,7 +966,8 @@
           cells.push({ value: given ? puzzle[r][c] : 0, given, notes: new Set(), el: null });
         }
 
-      difficultyEl.textContent = diff;
+      difficultyEl.textContent = gameMode === 'challenge'
+        ? `Lvl ${stats.challenge.level}` : diff;
       mistakesEl.textContent = mistakesLabel();
       hintBadge.textContent = settings.maxHints >= 99 ? '∞' : hintsLeft;
       hintBtn.disabled = settings.maxHints <= 0;
@@ -918,6 +989,7 @@
 
     function backToMenu() {
       stopTimer();
+      gameMode = 'casual';
       modal.classList.add('hidden');
       landingEl.classList.remove('hidden');
       gameScreenEl.classList.add('hidden');
@@ -1173,6 +1245,7 @@
       if (!solved) return;
       locked = true;
       stopTimer();
+      if (gameMode === 'challenge') return challengeWin();
       recordResult(true);
       showModal('🎉 Puzzle Solved!', `You finished ${currentDifficulty} in ${timerEl.textContent} with ${mistakes} mistake${mistakes === 1 ? '' : 's'}.`);
     }
@@ -1180,14 +1253,68 @@
     function gameOver() {
       locked = true;
       stopTimer();
+      revealSolution();
+      if (gameMode === 'challenge') return challengeLoss();
       recordResult(false);
-      // reveal solution
-      cells.forEach((c, i) => {
-        if (!c.given && c.value === 0) { c.value = solution[Math.floor(i/9)][i%9]; }
-        drawCell(i);
-      });
       const limit = settings.maxMistakes;
       showModal('Game Over', `You reached ${limit} mistake${limit === 1 ? '' : 's'}. The solution is shown on the board.`);
+    }
+
+    function revealSolution() {
+      cells.forEach((c, i) => {
+        if (!c.given && c.value === 0) { c.value = solution[Math.floor(i / 9)][i % 9]; }
+        drawCell(i);
+      });
+    }
+
+    /* ---------- Competition mode ---------- */
+    function startChallenge() {
+      gameMode = 'challenge';
+      modal.classList.add('hidden');
+      challengeModal.classList.add('hidden');
+      startGame(difficultyForLevel(stats.challenge.level));
+    }
+
+    function exitChallenge() {
+      backToMenu();
+      openChallenge();
+    }
+
+    function challengeWin() {
+      const completed = stats.challenge.level;
+      const diff = difficultyForLevel(completed);
+      const earned = levelPoints(diff, mistakes);
+      stats.challenge.points += earned;
+      stats.challenge.level = completed + 1;
+      if (stats.challenge.level > stats.challenge.bestLevel)
+        stats.challenge.bestLevel = stats.challenge.level;
+
+      let bonusMsg = '';
+      if (completed % MILESTONE_EVERY === 0) {
+        stats.challenge.points += MILESTONE_BONUS;
+        bonusMsg = ` 🎁 Milestone bonus +${MILESTONE_BONUS}!`;
+      }
+      saveStats();
+
+      showModal(
+        `✅ Level ${completed} Complete!`,
+        `+${earned} points in ${timerEl.textContent}.${bonusMsg} Total: ${stats.challenge.points} pts. Next up: ${difficultyForLevel(stats.challenge.level)} (Level ${stats.challenge.level}).`,
+        [
+          { label: 'Exit', onClick: exitChallenge },
+          { label: 'Next Level ▶', primary: true, onClick: startChallenge }
+        ]
+      );
+    }
+
+    function challengeLoss() {
+      showModal(
+        '❌ Level Failed',
+        `You hit the mistake limit on Level ${stats.challenge.level}. Give it another shot!`,
+        [
+          { label: 'Exit', onClick: exitChallenge },
+          { label: 'Retry Level ↻', primary: true, onClick: startChallenge }
+        ]
+      );
     }
 
     function recordResult(won) {
@@ -1204,10 +1331,44 @@
       saveStats();
     }
 
-    function showModal(title, text) {
+    function showModal(title, text, buttons) {
       document.getElementById('modalTitle').textContent = title;
       document.getElementById('modalText').textContent = text;
+      const actions = modal.querySelector('.modal-actions');
+      actions.innerHTML = '';
+      const list = buttons || [
+        { label: 'Change Level', onClick: backToMenu },
+        { label: 'New Game', primary: true, onClick: () => startGame(currentDifficulty) }
+      ];
+      list.forEach(b => {
+        const btn = document.createElement('button');
+        btn.className = 'btn' + (b.primary ? ' primary' : '');
+        btn.textContent = b.label;
+        btn.addEventListener('click', b.onClick);
+        actions.appendChild(btn);
+      });
       modal.classList.remove('hidden');
+    }
+
+    function renderChallenge() {
+      const lvl = stats.challenge.level;
+      document.getElementById('chalLevel').textContent = lvl;
+      document.getElementById('chalPoints').textContent = stats.challenge.points;
+      document.getElementById('chalBest').textContent = stats.challenge.bestLevel;
+      document.getElementById('chalDiff').textContent = difficultyForLevel(lvl);
+      document.getElementById('chalPlay').textContent = `Play Level ${lvl}`;
+      const nextMilestone = Math.ceil(lvl / MILESTONE_EVERY) * MILESTONE_EVERY;
+      const toGo = nextMilestone - lvl + 1;
+      document.getElementById('chalMilestone').textContent =
+        `🎁 Clear Level ${nextMilestone} for a +${MILESTONE_BONUS} bonus — ${toGo} level${toGo === 1 ? '' : 's'} to go!`;
+    }
+    function openChallenge() { renderChallenge(); challengeModal.classList.remove('hidden'); }
+    function closeChallenge() { challengeModal.classList.add('hidden'); }
+    function resetChallenge() {
+      if (!confirm('Reset your competition progress (level & points)?')) return;
+      stats.challenge = { level: 1, points: 0, bestLevel: 1 };
+      saveStats();
+      renderChallenge();
     }
 
     /* ---------- Timer / pause ---------- */
@@ -1309,7 +1470,9 @@
       return `${m}:${s}`;
     }
     function renderDashboard() {
-      document.getElementById('dashUser').textContent = currentUser ? `Player: ${currentUser}` : '';
+      document.getElementById('dashUser').textContent =
+        (currentUser ? `Player: ${currentUser}` : '') +
+        ` • 🏆 Level ${stats.challenge.level} • ${stats.challenge.points} pts`;
       let played = 0, wins = 0, losses = 0;
       DIFFS.forEach(d => { played += stats[d].played; wins += stats[d].wins; losses += stats[d].losses; });
       const winRate = played ? Math.round((wins / played) * 100) : 0;
@@ -1411,11 +1574,15 @@
     document.getElementById('resumeBtn').addEventListener('click', togglePause);
     document.getElementById('newGame').addEventListener('click', () => startGame(currentDifficulty));
     document.getElementById('backToMenu').addEventListener('click', backToMenu);
-    document.getElementById('modalNew').addEventListener('click', () => startGame(currentDifficulty));
-    document.getElementById('modalMenu').addEventListener('click', backToMenu);
     document.querySelectorAll('.difficulty-card').forEach(btn =>
-      btn.addEventListener('click', () => startGame(btn.dataset.diff))
+      btn.addEventListener('click', () => { gameMode = 'casual'; startGame(btn.dataset.diff); })
     );
+
+    // Competition wiring
+    document.getElementById('openChallenge').addEventListener('click', openChallenge);
+    document.getElementById('chalClose').addEventListener('click', closeChallenge);
+    document.getElementById('chalReset').addEventListener('click', resetChallenge);
+    document.getElementById('chalPlay').addEventListener('click', startChallenge);
 
     // Settings + Dashboard buttons
     document.getElementById('openSettings').addEventListener('click', openSettings);

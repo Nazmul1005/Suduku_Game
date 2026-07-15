@@ -23,6 +23,7 @@
 
 | | Feature | Description |
 |---|---|---|
+| 🏆 | **Competition Mode** | Play level-by-level campaign; difficulty ramps up and milestones award bonus points |
 | 👤 | **Player Profiles** | Log in with a nickname — each player gets their own saved stats |
 | 📊 | **Dashboard** | Track games played, wins, losses, win rate, and best times per difficulty |
 | ⚙️ | **Settings** | Customize mistakes allowed, hints, highlighting, dark mode, and more |
@@ -43,6 +44,15 @@
 3. **Fill the grid** so every row, column, and 3×3 box contains the digits 1–9 exactly once.
 4. Tap a cell, then tap a number — or use your keyboard.
 5. Watch out: too many mistakes ends the game!
+
+### 🏆 Competition Mode
+
+Take on an endless campaign of puzzles, one level at a time:
+
+- Levels get progressively harder — **Easy → Medium → Hard → Expert**
+- Earn points for every level you clear (fewer mistakes = more points)
+- Hit a **milestone every 5 levels** for a big bonus
+- Your level and points are saved to your profile
 
 ### ⌨️ Keyboard Shortcuts
 
