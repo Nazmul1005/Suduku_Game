@@ -11,6 +11,10 @@
 
 *Single file. Zero setup. Just open and play.*
 
+### [▶️ Play the Live Demo](https://nazmul1005.github.io/Suduku_Game/)
+
+[![Live Demo](https://img.shields.io/badge/Live_Demo-Play_Now-success?style=for-the-badge&logo=github)](https://nazmul1005.github.io/Suduku_Game/)
+
 </div>
 
 ---
@@ -62,6 +66,8 @@ cd Suduku_Game
 ```
 
 Then open `index.html` in any modern browser. That's it!
+
+Or skip the clone entirely and **[play it live here](https://nazmul1005.github.io/Suduku_Game/)**.
 
 ---
 
